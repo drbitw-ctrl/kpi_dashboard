@@ -127,14 +127,36 @@ st.dataframe(group_member_month.style.format({
     "total_manhours": "{:.2f}"
 }))
 
-st.header("👥 Team-level KPIs (monthly)")
-st.dataframe(team_month.style.format({
-    "avg_quality": "{:.2f}%",
-    "avg_revision": "{:.2f}%",
-    "avg_ontime": "{:.2f}%",
-    "avg_efficiency": "{:.2f}%",
-    "total_manhours": "{:.2f}"
-}))
+# --- Per-task averages ---
+if task_col and task_col in df.columns:
+    st.subheader("📝 Per-task averages")
+    task_avg = df.groupby(task_col).agg(
+        avg_quality=(quality_col, "mean") if quality_col else ("YearMonth", "count"),
+        avg_revision=(revision_col, "mean") if revision_col else ("YearMonth", "count"),
+        avg_ontime=(ontime_col, "mean") if ontime_col else ("YearMonth", "count"),
+        avg_efficiency=(efficiency_col, "mean") if efficiency_col else ("YearMonth", "count"),
+        manhours=(manhours_col, "sum") if manhours_col else ("YearMonth", "count"),
+        total_completed=("_completed_flag", "sum"),
+    ).reset_index()
+    st.dataframe(task_avg.style.format({
+        "avg_quality": "{:.2f}%",
+        "avg_revision": "{:.2f}%",
+        "avg_ontime": "{:.2f}%",
+        "avg_efficiency": "{:.2f}%",
+        "manhours": "{:.2f}"
+    }))
 
-# --- Charts ---
-st.sub
+    for c in ["avg_quality", "avg_revision", "avg_ontime", "avg_efficiency", "manhours"]:
+        if c in task_avg.columns and task_avg[c].notna().sum() > 0:
+            fig = px.bar(task_avg.sort_values(c, ascending=False).head(20),
+                         x=task_col, y=c, title=f"Top 20 Tasks - {c.replace('_',' ').title()}")
+            st.plotly_chart(fig, use_container_width=True)
+else:
+    st.info("ℹ️ Select a task column in the sidebar to see per-task charts.")
+
+# --- Download CSV ---
+buf = BytesIO()
+team_month.to_csv(buf, index=False)
+buf.seek(0)
+st.download_button("💾 Download team-month CSV", data=buf,
+                   file_name="team_month.csv", mime="text/csv")
