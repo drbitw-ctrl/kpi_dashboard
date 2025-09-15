@@ -8,6 +8,7 @@ st.set_page_config(layout="wide", page_title="KPI Dashboard")
 
 st.title("📊 KPI Dashboard")
 
+# --- Upload File ---
 uploaded = st.file_uploader("Upload KPI Excel or CSV file", type=["xlsx", "xls", "csv"])
 if uploaded is None:
     st.info("Please upload a KPI Excel or CSV file to start.")
@@ -51,7 +52,7 @@ st.sidebar.write({
     "Man-hours": manhours_col
 })
 
-# --- Clean and prepare data ---
+# --- Prepare Data ---
 if date_col:
     df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
     df["YearMonth"] = df[date_col].dt.to_period("M").astype(str)
@@ -59,47 +60,4 @@ else:
     df["YearMonth"] = "All"
 
 # Convert percentages stored as "80%" → 0.8
-def to_numeric_safe(series):
-    if series is None: return None
-    s = pd.to_numeric(
-        series.astype(str).str.replace("%", "", regex=False), errors="coerce"
-    )
-    return s.apply(lambda x: x / 100 if x and x > 1 else x)
-
-for c in [quality_col, revision_col, efficiency_col, ontime_col]:
-    if c and c in df.columns:
-        df[c] = to_numeric_safe(df[c])
-
-if manhours_col and manhours_col in df.columns:
-    df[manhours_col] = pd.to_numeric(df[manhours_col], errors="coerce")
-
-# Completed task flag
-if completed_col and completed_col in df.columns:
-    df["_completed_flag"] = df[completed_col].apply(
-        lambda x: 1 if str(x).strip().lower() in ["1", "yes", "done", "completed", "true"]
-        else (np.nan if pd.isna(x) else (1 if str(x).isdigit() and int(x) > 0 else 0))
-    )
-else:
-    df["_completed_flag"] = 1
-
-# --- Grouping ---
-group_cols = ["YearMonth"]
-if member_col:
-    group_cols.insert(0, member_col)
-
-group_member_month = df.groupby(group_cols).agg(
-    avg_quality=(quality_col, "mean") if quality_col else ("YearMonth", "count"),
-    avg_revision=(revision_col, "mean") if revision_col else ("YearMonth", "count"),
-    total_completed=("_completed_flag", "sum"),
-    avg_ontime=(ontime_col, "mean") if ontime_col else ("_completed_flag", "mean"),
-    avg_efficiency=(efficiency_col, "mean") if efficiency_col else ("YearMonth", "count"),
-    total_manhours=(manhours_col, "sum") if manhours_col else ("_completed_flag", "sum"),
-).reset_index()
-
-if member_col:
-    team_month = group_member_month.groupby("YearMonth").agg(
-        avg_quality=("avg_quality", "mean"),
-        avg_revision=("avg_revision", "mean"),
-        total_completed=("total_completed", "sum"),
-        avg_ontime=("avg_ontime", "mean"),
-        avg_efficiency=("avg_efficiency", "mean"),
+def to_numeric_safe(ser
